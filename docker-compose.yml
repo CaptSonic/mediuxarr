@@ -1,0 +1,14 @@
+services:
+  mediuxarr:
+    build: .
+    container_name: mediuxarr
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      MEDIUXARR_SECRET_KEY: ${MEDIUXARR_SECRET_KEY:?Set MEDIUXARR_SECRET_KEY in .env}
+      MEDIUXARR_MEDIUX_API_TOKEN: ${MEDIUXARR_MEDIUX_API_TOKEN:-}
+      TZ: ${TZ:-Europe/Berlin}
+    volumes:
+      - ./config:/config
+      - ${KOMETA_ASSET_PATH:?Set KOMETA_ASSET_PATH in .env}:/kometa-assets
