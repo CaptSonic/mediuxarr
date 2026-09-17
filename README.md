@@ -45,13 +45,28 @@ TZ=Europe/Berlin
 Der MediUX-Token kann damit vollständig über die `.env` bereitgestellt werden. Ein später über
 die Weboberfläche gespeicherter Token hat Vorrang vor `MEDIUXARR_MEDIUX_API_TOKEN`.
 
-3. Container starten:
+3. Da Repository und GHCR-Paket privat sind, einmalig bei GHCR anmelden. Dafür wird ein
+   GitHub Personal Access Token mit mindestens `read:packages` benötigt:
 
 ```bash
-docker compose up -d --build
+echo "$GHCR_TOKEN" | docker login ghcr.io -u CaptSonic --password-stdin
 ```
 
-4. Weboberfläche unter `http://localhost:8000` öffnen.
+4. Container starten:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+Standardmäßig wird `ghcr.io/captsonic/mediuxarr:latest` verwendet. Eine feste Version kann in
+der `.env` gewählt werden:
+
+```env
+MEDIUXARR_VERSION=0.1.0
+```
+
+5. Weboberfläche unter `http://localhost:8000` öffnen.
 
 Der Hostpfad `KOMETA_ASSET_PATH` muss derselbe Ordner sein, den Kometa als `asset_directory` verwendet. Im mediuxarr-Container erscheint er als `/kometa-assets`.
 

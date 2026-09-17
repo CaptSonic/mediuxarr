@@ -1,6 +1,6 @@
 services:
   mediuxarr:
-    build: .
+    image: ghcr.io/captsonic/mediuxarr:${MEDIUXARR_VERSION:-latest}
     container_name: mediuxarr
     restart: unless-stopped
     ports:
