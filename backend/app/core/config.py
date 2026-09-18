@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     config_dir: Path = Path("./data")
     kometa_asset_dir: Path = Path("./kometa-assets")
     frontend_dir: Path = Path("../frontend/dist")
-    secret_key: str = "development-only-change-me"
+    secret_key: str = ""
     cors_origins: str = "http://localhost:5173"
     mediux_api_token: str = ""
     mediux_api_url: str = "https://images.mediux.io"

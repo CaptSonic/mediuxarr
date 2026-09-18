@@ -32,43 +32,38 @@ Der Ordnername wird bevorzugt aus dem tatsächlichen Medienpfad in Plex abgeleit
 
 ## Docker
 
-1. `.env.example` nach `.env` kopieren.
-2. Mindestens diese Werte ergänzen:
-
-```env
-MEDIUXARR_SECRET_KEY=eine-lange-zufaellige-zeichenfolge
-MEDIUXARR_MEDIUX_API_TOKEN=your-mediux-api-token
-KOMETA_ASSET_PATH=/mnt/appdata/kometa/assets
-TZ=Europe/Berlin
-```
-
-Der MediUX-Token kann damit vollständig über die `.env` bereitgestellt werden. Ein später über
-die Weboberfläche gespeicherter Token hat Vorrang vor `MEDIUXARR_MEDIUX_API_TOKEN`.
-
-3. Da Repository und GHCR-Paket privat sind, einmalig bei GHCR anmelden. Dafür wird ein
+1. Da Repository und GHCR-Paket privat sind, einmalig bei GHCR anmelden. Dafür wird ein
    GitHub Personal Access Token mit mindestens `read:packages` benötigt:
 
 ```bash
 echo "$GHCR_TOKEN" | docker login ghcr.io -u CaptSonic --password-stdin
 ```
 
-4. Container starten:
+2. Container starten; eine `.env`-Datei ist dafür nicht erforderlich:
 
 ```bash
-docker compose pull
 docker compose up -d
 ```
 
-Standardmäßig wird `ghcr.io/captsonic/mediuxarr:latest` verwendet. Eine feste Version kann in
-der `.env` gewählt werden:
+Beim ersten Start erzeugt mediuxarr automatisch einen persistenten Schlüssel unter
+`./config/.secret_key`. Plex- und MediUX-Zugangsdaten werden anschließend über die
+Weboberfläche eingetragen. Als lokaler Kometa-Asset-Ordner wird standardmäßig
+`./kometa-assets` verwendet.
+
+3. Weboberfläche unter `http://localhost:8000` öffnen und Plex, MediUX sowie den tatsächlichen
+   Kometa-Zielpfad konfigurieren.
+
+Eine optionale `.env` kann weiterhin für abweichende Pfade, Zeitzone, Version oder einen extern
+verwalteten Schlüssel verwendet werden. Beispiel:
 
 ```env
-MEDIUXARR_VERSION=0.1.0
+MEDIUXARR_VERSION=0.1.1
+KOMETA_ASSET_PATH=/mnt/appdata/kometa/assets
+TZ=Europe/Berlin
 ```
 
-5. Weboberfläche unter `http://localhost:8000` öffnen.
-
-Der Hostpfad `KOMETA_ASSET_PATH` muss derselbe Ordner sein, den Kometa als `asset_directory` verwendet. Im mediuxarr-Container erscheint er als `/kometa-assets`.
+Der Hostpfad `KOMETA_ASSET_PATH` muss derselbe Ordner sein, den Kometa als `asset_directory`
+verwendet. Im mediuxarr-Container erscheint er als `/kometa-assets`.
 
 Beispiel für Kometa:
 

@@ -6,9 +6,9 @@ services:
     ports:
       - "8000:8000"
     environment:
-      MEDIUXARR_SECRET_KEY: ${MEDIUXARR_SECRET_KEY:?Set MEDIUXARR_SECRET_KEY in .env}
+      MEDIUXARR_SECRET_KEY: ${MEDIUXARR_SECRET_KEY:-}
       MEDIUXARR_MEDIUX_API_TOKEN: ${MEDIUXARR_MEDIUX_API_TOKEN:-}
       TZ: ${TZ:-Europe/Berlin}
     volumes:
       - ./config:/config
-      - ${KOMETA_ASSET_PATH:?Set KOMETA_ASSET_PATH in .env}:/kometa-assets
+      - ${KOMETA_ASSET_PATH:-./kometa-assets}:/kometa-assets
