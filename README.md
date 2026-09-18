@@ -32,14 +32,7 @@ Der Ordnername wird bevorzugt aus dem tatsächlichen Medienpfad in Plex abgeleit
 
 ## Docker
 
-1. Da Repository und GHCR-Paket privat sind, einmalig bei GHCR anmelden. Dafür wird ein
-   GitHub Personal Access Token mit mindestens `read:packages` benötigt:
-
-```bash
-echo "$GHCR_TOKEN" | docker login ghcr.io -u CaptSonic --password-stdin
-```
-
-2. Container starten; eine `.env`-Datei ist dafür nicht erforderlich:
+1. Container starten; eine `.env`-Datei und eine Anmeldung bei GHCR sind nicht erforderlich:
 
 ```bash
 docker compose up -d
@@ -50,7 +43,7 @@ Beim ersten Start erzeugt mediuxarr automatisch einen persistenten Schlüssel un
 Weboberfläche eingetragen. Als lokaler Kometa-Asset-Ordner wird standardmäßig
 `./kometa-assets` verwendet.
 
-3. Weboberfläche unter `http://localhost:8000` öffnen und Plex, MediUX sowie den tatsächlichen
+2. Weboberfläche unter `http://localhost:8000` öffnen und Plex, MediUX sowie den tatsächlichen
    Kometa-Zielpfad konfigurieren.
 
 Eine optionale `.env` kann weiterhin für abweichende Pfade, Zeitzone, Version oder einen extern
