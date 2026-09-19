@@ -47,6 +47,30 @@ def test_show_assets_are_normalized():
     assert result.assets[1].episode_number == 1
 
 
+def test_nullable_mediux_dates_are_normalized():
+    provider = MediuxProvider("https://images.mediux.io", "secret")
+
+    result = provider._set(
+        {
+            "id": "set-with-null-dates",
+            "set_title": "Nullable dates",
+            "date_updated": None,
+            "movie_poster": [
+                {
+                    "id": "poster-with-null-date",
+                    "modified_on": None,
+                }
+            ],
+            "movie_backdrop": [],
+        },
+        "movie",
+    )
+
+    assert result.date_updated == ""
+    assert result.assets[0].modified_on == ""
+    assert result.assets[0].preview_url.endswith("/assets/poster-with-null-date?v=&key=thumb")
+
+
 @pytest.mark.asyncio
 async def test_graphql_timeout_becomes_mediux_error(monkeypatch):
     async def post(*args, **kwargs):

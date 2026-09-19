@@ -136,7 +136,7 @@ class MediuxProvider:
             title = episode.get("episode_title")
             episode_number = episode.get("episode_number")
             season_number = (episode.get("season_id") or {}).get("season_number")
-        modified_on = raw.get("modified_on", "")
+        modified_on = raw.get("modified_on") or ""
         return MediuxAsset(
             id=str(raw["id"]),
             asset_type=asset_type,
@@ -172,7 +172,7 @@ class MediuxProvider:
             id=str(raw["id"]),
             title=raw.get("set_title") or "Unbenanntes Set",
             creator=(raw.get("user_created") or {}).get("username") or "Unbekannt",
-            date_updated=raw.get("date_updated", ""),
+            date_updated=raw.get("date_updated") or "",
             popularity=raw.get("popularity") or 0,
             popularity_global=raw.get("popularity_global") or 0,
             assets=assets,
