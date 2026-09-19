@@ -20,7 +20,7 @@ export function LibraryPage() {
   });
   const scan = useMutation({
     mutationFn: api.scan,
-    onSuccess: async (data) => { await client.invalidateQueries({ queryKey: ["media"] }); setNotice(`${data.items} Medien wurden eingelesen.`); },
+    onSuccess: async (data) => { await client.invalidateQueries({ queryKey: ["media"] }); setNotice(`${data.items} Medien wurden eingelesen, ${data.mediux_checked} MediUX-Einträge aktualisiert.`); },
   });
   const error = sync.error ?? save.error ?? scan.error;
 

@@ -27,6 +27,7 @@ export interface MediaItem {
   media_path: string | null;
   asset_name: string;
   last_exported_set_id: string | null;
+  mediux_checked_at: string | null;
 }
 
 export type AssetType = "poster" | "background" | "season_poster" | "titlecard";

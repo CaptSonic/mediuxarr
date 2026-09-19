@@ -37,9 +37,13 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ library_ids }),
     }),
-  scan: () => request<{ items: number }>("/api/scan", { method: "POST" }),
+  scan: () => request<{ items: number; mediux_checked: number }>("/api/scan", { method: "POST" }),
   getMedia: (search = "") =>
     request<MediaItem[]>(`/api/media?search=${encodeURIComponent(search)}`),
+  refreshMediaAvailability: () =>
+    request<{ checked: number; available: number }>("/api/media/availability/refresh", {
+      method: "POST",
+    }),
   getSets: (mediaId: number) => request<MediuxSet[]>(`/api/media/${mediaId}/sets`),
   planExport: (mediaId: number, setId: string, assets: MediuxAsset[]) =>
     request<ExportPlan>(`/api/media/${mediaId}/export/plan`, {

@@ -2,11 +2,11 @@ from pathlib import Path
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import get_settings
-from app.db.base import Library, MediaItem
+from app.db.base import Library, MediaItem, MediuxAvailabilityCache
 from app.db.session import get_db
 from app.providers.mediux import MediuxError, MediuxProvider
 from app.providers.plex import PlexProvider
@@ -19,11 +19,17 @@ from app.schemas import (
     LibraryRead,
     LibrarySelection,
     MediaItemRead,
+    MediuxRefreshResult,
     MediuxSet,
     SettingsRead,
     SettingsUpdate,
 )
 from app.services.export import build_plan, execute_export, prepare_assets
+from app.services.mediux_cache import (
+    items_needing_refresh,
+    refresh_media_availability,
+    sets_for_item,
+)
 from app.services.scan import scan_selected_libraries, sync_libraries
 from app.services.settings import connection_values, read_settings, update_settings
 
@@ -60,6 +66,7 @@ def _media_response(item: MediaItem) -> MediaItemRead:
         media_path=item.media_path,
         asset_name=item.asset_name,
         last_exported_set_id=item.last_exported_set_id,
+        mediux_checked_at=(item.mediux_cache.checked_at.isoformat() if item.mediux_cache else None),
     )
 
 
@@ -125,20 +132,41 @@ def libraries_select(payload: LibrarySelection, db: Session = Depends(get_db)) -
 async def scan(db: Session = Depends(get_db)) -> dict[str, int | str]:
     try:
         count = await scan_selected_libraries(db, _plex_provider(db))
-        return {"status": "completed", "items": count}
+        items = list(db.scalars(select(MediaItem)).all())
+        pending = items_needing_refresh(db, items)
+        checked = (
+            await refresh_media_availability(db, _mediux_provider(db), pending) if pending else 0
+        )
+        return {"status": "completed", "items": count, "mediux_checked": checked}
     except Exception as exc:
         raise HTTPException(502, f"Bibliotheksscan fehlgeschlagen: {exc}") from exc
 
 
 @router.get("/media", response_model=list[MediaItemRead])
-def media_get(
+async def media_get(
     search: str = "",
     media_type: str | None = None,
     library_id: int | None = None,
     only_matched: bool = False,
     db: Session = Depends(get_db),
 ) -> list[MediaItemRead]:
-    query = select(MediaItem).options(selectinload(MediaItem.library)).join(MediaItem.library)
+    all_items = list(db.scalars(select(MediaItem)).all())
+    pending = items_needing_refresh(db, all_items)
+    if pending:
+        try:
+            await refresh_media_availability(db, _mediux_provider(db), pending)
+        except MediuxError as exc:
+            raise HTTPException(502, str(exc)) from exc
+    query = (
+        select(MediaItem)
+        .options(selectinload(MediaItem.library), selectinload(MediaItem.mediux_cache))
+        .join(MediaItem.library)
+        .join(MediuxAvailabilityCache)
+        .where(
+            MediuxAvailabilityCache.has_assets.is_(True),
+            MediaItem.tmdb_id.is_not(None),
+        )
+    )
     if search.strip():
         term = f"%{search.strip()}%"
         query = query.where(or_(MediaItem.title.ilike(term), MediaItem.asset_name.ilike(term)))
@@ -150,6 +178,28 @@ def media_get(
         query = query.where(MediaItem.tmdb_id.is_not(None))
     items = db.scalars(query.order_by(MediaItem.title, MediaItem.year)).all()
     return [_media_response(item) for item in items]
+
+
+@router.post("/media/availability/refresh", response_model=MediuxRefreshResult)
+async def media_availability_refresh(
+    db: Session = Depends(get_db),
+) -> MediuxRefreshResult:
+    items = list(db.scalars(select(MediaItem)).all())
+    eligible = [item for item in items if item.tmdb_id]
+    try:
+        checked = (
+            await refresh_media_availability(db, _mediux_provider(db), eligible, force=True)
+            if eligible
+            else 0
+        )
+    except MediuxError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    available = db.scalar(
+        select(func.count())
+        .select_from(MediuxAvailabilityCache)
+        .where(MediuxAvailabilityCache.has_assets.is_(True))
+    )
+    return MediuxRefreshResult(checked=checked, available=available or 0)
 
 
 @router.get("/media/{media_item_id}", response_model=MediaItemRead)
@@ -172,7 +222,7 @@ async def media_sets(media_item_id: int, db: Session = Depends(get_db)) -> list[
     if not item.tmdb_id:
         raise HTTPException(422, "Das Medium besitzt keine TMDb-ID")
     try:
-        sets = await _mediux_provider(db).sets_for_item(item.media_type, item.tmdb_id)
+        sets = await sets_for_item(db, _mediux_provider(db), item)
     except MediuxError as exc:
         raise HTTPException(502, str(exc)) from exc
     for artwork_set in sets:

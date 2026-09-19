@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.db.base import Library, MediaItem
+from app.db.base import Library, MediaItem, MediuxAvailabilityCache
 from app.providers.plex import PlexProvider
 
 
@@ -52,6 +52,11 @@ async def scan_selected_libraries(db: Session, provider: PlexProvider) -> int:
             total += 1
         stale_ids = [item.id for key, item in existing.items() if key not in seen]
         if stale_ids:
+            db.execute(
+                delete(MediuxAvailabilityCache).where(
+                    MediuxAvailabilityCache.media_item_id.in_(stale_ids)
+                )
+            )
             db.execute(delete(MediaItem).where(MediaItem.id.in_(stale_ids)))
         library.scanned_at = datetime.now(UTC)
         db.commit()

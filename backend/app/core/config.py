@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     mediux_api_url: str = "https://images.mediux.io"
     request_timeout: float = Field(default=60.0, ge=5, le=300)
     max_image_bytes: int = Field(default=30 * 1024 * 1024, ge=1024)
+    mediux_cache_hours: int = Field(default=24, ge=1, le=720)
+    mediux_refresh_concurrency: int = Field(default=5, ge=1, le=20)
 
     @property
     def database_url(self) -> str:

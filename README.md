@@ -50,9 +50,26 @@ Eine optionale `.env` kann weiterhin für abweichende Pfade, Zeitzone, Version o
 verwalteten Schlüssel verwendet werden. Beispiel:
 
 ```env
-MEDIUXARR_VERSION=0.1.1
+MEDIUXARR_VERSION=0.2.0
 KOMETA_ASSET_PATH=/mnt/appdata/kometa/assets
 TZ=Europe/Berlin
+```
+
+## Medienübersicht und MediUX-Cache
+
+Die Medienübersicht trennt Filme und Serien in eigene Bereiche. Angezeigt werden ausschließlich
+Plex-Medien mit TMDb-ID, für die MediUX mindestens ein Set mit Dateien zurückliefert.
+
+Positive und negative MediUX-Ergebnisse werden persistent in der SQLite-Datenbank unter
+`./config` gespeichert. Der Cache ist standardmäßig 24 Stunden gültig. Beim Öffnen der Übersicht
+werden nur unbekannte, geänderte oder abgelaufene Einträge erneut geprüft. Über
+**MediUX aktualisieren** kann eine vollständige Aktualisierung erzwungen werden.
+
+Die Cache-Einstellungen können optional über die Umgebung angepasst werden:
+
+```env
+MEDIUXARR_MEDIUX_CACHE_HOURS=24
+MEDIUXARR_MEDIUX_REFRESH_CONCURRENCY=5
 ```
 
 Der Hostpfad `KOMETA_ASSET_PATH` muss derselbe Ordner sein, den Kometa als `asset_directory`

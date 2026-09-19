@@ -56,6 +56,22 @@ class MediaItem(Base):
     last_exported_set_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     library: Mapped[Library] = relationship(back_populates="items")
+    mediux_cache: Mapped["MediuxAvailabilityCache | None"] = relationship(
+        cascade="all, delete-orphan", single_parent=True
+    )
+
+
+class MediuxAvailabilityCache(Base):
+    __tablename__ = "mediux_availability_cache"
+
+    media_item_id: Mapped[int] = mapped_column(
+        ForeignKey("media_items.id", ondelete="CASCADE"), primary_key=True
+    )
+    media_type: Mapped[str] = mapped_column(String(20))
+    tmdb_id: Mapped[str] = mapped_column(String(50), index=True)
+    has_assets: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    sets: Mapped[list] = mapped_column(JSON, default=list)
+    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class ExportJob(Base):

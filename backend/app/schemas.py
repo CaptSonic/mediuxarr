@@ -48,6 +48,12 @@ class MediaItemRead(BaseModel):
     media_path: str | None
     asset_name: str
     last_exported_set_id: str | None
+    mediux_checked_at: str | None = None
+
+
+class MediuxRefreshResult(BaseModel):
+    checked: int
+    available: int
 
 
 class MediuxAsset(BaseModel):

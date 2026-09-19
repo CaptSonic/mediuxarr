@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Check, Download, Film, FolderOpen, Search, Tv, X } from "lucide-react";
+import { AlertTriangle, Check, Download, Film, FolderOpen, RefreshCw, Search, Tv, X } from "lucide-react";
 import { api } from "../api";
 import type { ExportPlan, MediaItem, MediuxAsset, MediuxSet } from "../types";
 
@@ -18,11 +18,17 @@ export function MediaPage() {
   const media = useQuery({ queryKey: ["media", search], queryFn: () => api.getMedia(search) });
   const sets = useQuery({ queryKey: ["sets", active?.id], queryFn: () => api.getSets(active!.id), enabled: Boolean(active?.tmdb_id) });
   const chosenAssets = useMemo(() => activeSet?.assets.filter((asset) => selected.includes(asset.id)) ?? [], [activeSet, selected]);
+  const movies = useMemo(() => media.data?.filter((item) => item.media_type === "movie") ?? [], [media.data]);
+  const shows = useMemo(() => media.data?.filter((item) => item.media_type === "show") ?? [], [media.data]);
 
   const planMutation = useMutation({ mutationFn: () => api.planExport(active!.id, activeSet!.id, chosenAssets), onSuccess: (data) => { setPlan(data); setConfirmOverwrite(false); } });
   const exportMutation = useMutation({
     mutationFn: () => api.executeExport(active!.id, activeSet!.id, chosenAssets, confirmOverwrite),
     onSuccess: async (data) => { setResult(`Export ${data.status}: ${data.entries.filter((entry) => entry.status !== "failed").length} Assets verarbeitet.`); setPlan(null); await client.invalidateQueries({ queryKey: ["media"] }); },
+  });
+  const refreshMutation = useMutation({
+    mutationFn: api.refreshMediaAvailability,
+    onSuccess: async () => client.invalidateQueries({ queryKey: ["media"] }),
   });
 
   const open = (item: MediaItem) => { setActive(item); setActiveSet(null); setSelected([]); setPlan(null); setResult(""); };
@@ -33,19 +39,17 @@ export function MediaPage() {
   return (
     <section>
       <header className="page-header split">
-        <div><span className="eyebrow">Kometa-Asset-Browser</span><h1>Medien</h1><p>Wähle ein Plex-Medium und exportiere passende MediUX-Assets.</p></div>
-        <div className="search"><Search size={18} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Titel oder Asset-Ordner suchen" /></div>
+        <div><span className="eyebrow">Kometa-Asset-Browser</span><h1>Medien</h1><p>Es werden nur Plex-Medien angezeigt, für die MediUX Dateien anbietet.</p></div>
+        <div className="media-tools">
+          <div className="search"><Search size={18} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Titel oder Asset-Ordner suchen" /></div>
+          <button className="button secondary" onClick={() => refreshMutation.mutate()} disabled={refreshMutation.isPending}><RefreshCw size={17} /> MediUX aktualisieren</button>
+        </div>
       </header>
-      <div className="media-grid">
-        {media.data?.map((item) => (
-          <button className="media-card" key={item.id} onClick={() => open(item)}>
-            <div className="media-placeholder">{item.media_type === "movie" ? <Film /> : <Tv />}</div>
-            <div className="media-copy"><strong>{item.title}</strong><span>{item.year ?? "–"} · {item.library_title}</span><small><FolderOpen size={13} /> {item.asset_name}</small></div>
-            <span className={`status-dot ${item.tmdb_id ? "matched" : "missing"}`} title={item.tmdb_id ? `TMDb ${item.tmdb_id}` : "Keine TMDb-ID"} />
-          </button>
-        ))}
-      </div>
-      {!media.isLoading && media.data?.length === 0 && <div className="empty"><Film /><h2>Keine Medien vorhanden</h2><p>Wähle Bibliotheken aus und starte einen Plex-Scan.</p></div>}
+      {(media.error || refreshMutation.error) && <div className="notice error">{(media.error ?? refreshMutation.error)?.message}</div>}
+      {media.isLoading ? <div className="loading">MediUX-Verfügbarkeit wird geprüft…</div> : <>
+        <MediaSection title="Filme" icon={<Film />} items={movies} onOpen={open} />
+        <MediaSection title="Serien" icon={<Tv />} items={shows} onOpen={open} />
+      </>}
 
       {active && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
         <div className="modal">
@@ -71,6 +75,19 @@ export function MediaPage() {
       {plan && <div className="modal-backdrop confirm-layer"><div className="confirm-dialog"><h2>Export bestätigen</h2><p>Diese Dateien werden in den Kometa-Asset-Ordner geschrieben:</p><div className="plan-list">{plan.entries.map((entry) => <div key={entry.asset_id} className={entry.exists ? "conflict" : ""}><span>{entry.exists ? <AlertTriangle /> : <Check />}</span><code>{entry.target_path}</code><strong>{entry.exists ? "Ersetzen" : "Neu"}</strong></div>)}</div>{plan.requires_confirmation && <label className="confirm-check"><input type="checkbox" checked={confirmOverwrite} onChange={(e) => setConfirmOverwrite(e.target.checked)} /><span>Ich bestätige, dass vorhandene Assets ohne Backup ersetzt werden.</span></label>}<div className="modal-actions"><button className="button secondary" onClick={() => setPlan(null)}>Abbrechen</button><button className="button danger" disabled={plan.requires_confirmation && !confirmOverwrite || exportMutation.isPending} onClick={() => exportMutation.mutate()}>Assets exportieren</button></div></div></div>}
     </section>
   );
+}
+
+function MediaSection({ title, icon, items, onOpen }: { title: string; icon: React.ReactNode; items: MediaItem[]; onOpen: (item: MediaItem) => void }) {
+  return <section className="media-section">
+    <div className="section-heading"><div>{icon}<h2>{title}</h2></div><span>{items.length}</span></div>
+    {items.length ? <div className="media-grid">
+      {items.map((item) => <button className="media-card" key={item.id} onClick={() => onOpen(item)}>
+        <div className="media-placeholder">{item.media_type === "movie" ? <Film /> : <Tv />}</div>
+        <div className="media-copy"><strong>{item.title}</strong><span>{item.year ?? "–"} · {item.library_title}</span><small><FolderOpen size={13} /> {item.asset_name}</small></div>
+        <span className="status-dot matched" title={item.mediux_checked_at ? `MediUX geprüft: ${new Date(item.mediux_checked_at).toLocaleString("de-DE")}` : "Bei MediUX verfügbar"} />
+      </button>)}
+    </div> : <div className="empty compact">{icon}<h2>Keine {title.toLowerCase()} mit MediUX-Dateien</h2><p>Starte einen Plex-Scan oder aktualisiere den MediUX-Cache.</p></div>}
+  </section>;
 }
 
 function AssetCard({ asset, selected, onToggle }: { asset: MediuxAsset; selected: boolean; onToggle: () => void }) {
