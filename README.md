@@ -50,7 +50,7 @@ Eine optionale `.env` kann weiterhin für abweichende Pfade, Zeitzone, Version o
 verwalteten Schlüssel verwendet werden. Beispiel:
 
 ```env
-MEDIUXARR_VERSION=0.2.0
+MEDIUXARR_VERSION=0.2.1
 KOMETA_ASSET_PATH=/mnt/appdata/kometa/assets
 TZ=Europe/Berlin
 ```

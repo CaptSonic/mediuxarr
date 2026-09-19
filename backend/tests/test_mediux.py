@@ -1,4 +1,7 @@
-from app.providers.mediux import MediuxProvider
+import httpx
+import pytest
+
+from app.providers.mediux import MediuxError, MediuxProvider
 
 
 def test_image_url_contains_stable_version_and_quality():
@@ -42,3 +45,27 @@ def test_show_assets_are_normalized():
     assert result.assets[0].season_number == 1
     assert result.assets[1].asset_type == "titlecard"
     assert result.assets[1].episode_number == 1
+
+
+@pytest.mark.asyncio
+async def test_graphql_timeout_becomes_mediux_error(monkeypatch):
+    async def post(*args, **kwargs):
+        raise httpx.ReadTimeout("timed out")
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", post)
+    provider = MediuxProvider("https://images.mediux.io", "secret")
+
+    with pytest.raises(MediuxError, match="Zeitüberschreitung"):
+        await provider.sets_for_item("movie", "100")
+
+
+@pytest.mark.asyncio
+async def test_graphql_invalid_json_becomes_mediux_error(monkeypatch):
+    async def post(*args, **kwargs):
+        return httpx.Response(200, content=b"not-json")
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", post)
+    provider = MediuxProvider("https://images.mediux.io", "secret")
+
+    with pytest.raises(MediuxError, match="ungültige Antwort"):
+        await provider.sets_for_item("movie", "100")

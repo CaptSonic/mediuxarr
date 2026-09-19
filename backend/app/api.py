@@ -155,8 +155,9 @@ async def media_get(
     if pending:
         try:
             await refresh_media_availability(db, _mediux_provider(db), pending)
-        except MediuxError as exc:
-            raise HTTPException(502, str(exc)) from exc
+        except Exception as exc:
+            message = str(exc) if isinstance(exc, MediuxError) else "MediUX-Abfrage fehlgeschlagen"
+            raise HTTPException(502, message) from exc
     query = (
         select(MediaItem)
         .options(selectinload(MediaItem.library), selectinload(MediaItem.mediux_cache))
@@ -192,8 +193,9 @@ async def media_availability_refresh(
             if eligible
             else 0
         )
-    except MediuxError as exc:
-        raise HTTPException(502, str(exc)) from exc
+    except Exception as exc:
+        message = str(exc) if isinstance(exc, MediuxError) else "MediUX-Abfrage fehlgeschlagen"
+        raise HTTPException(502, message) from exc
     available = db.scalar(
         select(func.count())
         .select_from(MediuxAvailabilityCache)
@@ -223,8 +225,9 @@ async def media_sets(media_item_id: int, db: Session = Depends(get_db)) -> list[
         raise HTTPException(422, "Das Medium besitzt keine TMDb-ID")
     try:
         sets = await sets_for_item(db, _mediux_provider(db), item)
-    except MediuxError as exc:
-        raise HTTPException(502, str(exc)) from exc
+    except Exception as exc:
+        message = str(exc) if isinstance(exc, MediuxError) else "MediUX-Abfrage fehlgeschlagen"
+        raise HTTPException(502, message) from exc
     for artwork_set in sets:
         for asset in artwork_set.assets:
             asset.preview_url = (

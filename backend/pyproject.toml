@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mediuxarr"
-version = "0.2.0"
+version = "0.2.1"
 description = "Export MediUX artwork for Plex libraries into Kometa asset folders"
 requires-python = ">=3.12"
 dependencies = [

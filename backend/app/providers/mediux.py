@@ -72,23 +72,36 @@ class MediuxProvider:
         }
 
     async def test_connection(self) -> str:
-        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
-            response = await client.get(f"{self.api_url}/users/me", headers=self.headers)
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
+                response = await client.get(f"{self.api_url}/users/me", headers=self.headers)
+        except httpx.TimeoutException as exc:
+            raise MediuxError("Zeitüberschreitung bei der Verbindung zu MediUX") from exc
+        except httpx.HTTPError as exc:
+            raise MediuxError(f"MediUX konnte nicht erreicht werden: {exc}") from exc
         if response.status_code != 200:
             raise MediuxError(f"MediUX antwortete mit HTTP {response.status_code}")
         return "MediUX-Token ist gültig"
 
     async def _graphql(self, query: str, variables: dict) -> dict:
         headers = {**self.headers, "Content-Type": "application/json"}
-        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
-            response = await client.post(
-                f"{self.api_url}/graphql",
-                headers=headers,
-                json={"query": query, "variables": variables},
-            )
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
+                response = await client.post(
+                    f"{self.api_url}/graphql",
+                    headers=headers,
+                    json={"query": query, "variables": variables},
+                )
+        except httpx.TimeoutException as exc:
+            raise MediuxError("Zeitüberschreitung bei der MediUX-Abfrage") from exc
+        except httpx.HTTPError as exc:
+            raise MediuxError(f"MediUX konnte nicht erreicht werden: {exc}") from exc
         if response.status_code != 200:
             raise MediuxError(f"MediUX GraphQL antwortete mit HTTP {response.status_code}")
-        payload = response.json()
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise MediuxError("MediUX lieferte eine ungültige Antwort") from exc
         if payload.get("errors"):
             message = payload["errors"][0].get("message", "Unbekannter GraphQL-Fehler")
             raise MediuxError(message)
