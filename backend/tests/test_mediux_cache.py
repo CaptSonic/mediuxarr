@@ -1,11 +1,13 @@
 from datetime import UTC, datetime
 
+import httpx
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base, Library, MediaItem, MediuxAvailabilityCache
+from app.providers.mediux import MediuxProvider
 from app.schemas import MediuxAsset, MediuxSet
 from app.services.mediux_cache import (
     items_needing_refresh,
@@ -158,3 +160,47 @@ async def test_forced_refresh_replaces_cached_availability(db: Session):
     assert checked == 1
     assert cache.has_assets is False
     assert cache.sets == []
+
+
+@pytest.mark.asyncio
+async def test_partial_permission_error_is_cached_as_unavailable(db: Session, monkeypatch):
+    async def post(*args, **kwargs):
+        tmdb_id = kwargs["json"]["variables"]["tmdb_id"]
+        if tmdb_id == "100":
+            data = {
+                "movies_by_id": {
+                    "id": "100",
+                    "movie_sets": [
+                        {
+                            "id": "set-1",
+                            "set_title": "Set",
+                            "movie_poster": [{"id": "poster-1"}],
+                            "movie_backdrop": [],
+                        }
+                    ],
+                }
+            }
+            return httpx.Response(200, json={"data": data})
+        return httpx.Response(
+            200,
+            json={
+                "data": {"movies_by_id": None},
+                "errors": [
+                    {
+                        "message": "You don't have permission to access this.",
+                        "path": ["movies_by_id"],
+                    }
+                ],
+            },
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", post)
+    provider = MediuxProvider("https://images.mediux.io", "secret")
+    items = list(db.query(MediaItem).filter(MediaItem.tmdb_id.is_not(None)).order_by(MediaItem.id))
+
+    checked = await refresh_media_availability(db, provider, items)
+
+    assert checked == 2
+    assert db.get(MediuxAvailabilityCache, 1).has_assets is True
+    assert db.get(MediuxAvailabilityCache, 2).has_assets is False
+    assert db.get(MediuxAvailabilityCache, 2).sets == []

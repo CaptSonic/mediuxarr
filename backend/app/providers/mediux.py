@@ -102,10 +102,12 @@ class MediuxProvider:
             payload = response.json()
         except ValueError as exc:
             raise MediuxError("MediUX lieferte eine ungültige Antwort") from exc
-        if payload.get("errors"):
-            message = payload["errors"][0].get("message", "Unbekannter GraphQL-Fehler")
+        errors = payload.get("errors") or []
+        data = payload.get("data")
+        if errors and data is None:
+            message = errors[0].get("message", "Unbekannter GraphQL-Fehler")
             raise MediuxError(message)
-        return payload.get("data", {})
+        return data or {}
 
     @staticmethod
     def _version(modified_on: str) -> str:

@@ -93,3 +93,43 @@ async def test_graphql_invalid_json_becomes_mediux_error(monkeypatch):
 
     with pytest.raises(MediuxError, match="ungültige Antwort"):
         await provider.sets_for_item("movie", "100")
+
+
+@pytest.mark.asyncio
+async def test_graphql_uses_partial_data_when_a_field_is_not_accessible(monkeypatch):
+    async def post(*args, **kwargs):
+        return httpx.Response(
+            200,
+            json={
+                "data": {"movies_by_id": None},
+                "errors": [
+                    {
+                        "message": "You don't have permission to access this.",
+                        "path": ["movies_by_id"],
+                    }
+                ],
+            },
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", post)
+    provider = MediuxProvider("https://images.mediux.io", "secret")
+
+    assert await provider.sets_for_item("movie", "100") == []
+
+
+@pytest.mark.asyncio
+async def test_graphql_permission_error_without_data_remains_fatal(monkeypatch):
+    async def post(*args, **kwargs):
+        return httpx.Response(
+            200,
+            json={
+                "data": None,
+                "errors": [{"message": "You don't have permission to access this."}],
+            },
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", post)
+    provider = MediuxProvider("https://images.mediux.io", "secret")
+
+    with pytest.raises(MediuxError, match="permission"):
+        await provider.sets_for_item("movie", "100")
